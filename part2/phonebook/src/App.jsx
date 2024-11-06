@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios'
+import personService from './services/persons'
 
 const Filter = ({value, onFilterChange}) => {
   return(
@@ -38,9 +38,25 @@ const PersonForm = ({onSubmit, nameValue, onNameChange, numberValue, onNumberCha
   )
 }
 
-const Person = ({key, name, number}) => <p key={key}>{name} {number}</p>
+const Person = ({name, number, onClick}) => <p>{name} {number} <button onClick={onClick}>delete</button></p>
 
-const Persons = ({personList}) => <div>{personList.map(person => <Person key={person.id} name={person.name} number={person.number}/>)}</div>
+const Persons = ({personList, filteredList, handleDeleteClick}) => {
+  if (personList.length !== 0 && filteredList.length === 0) {
+    return <p>No number matches the filter</p>
+  } else if (personList.length === 0) {
+    return <p>No numbers added</p>
+  }
+
+  return(
+    <div>
+      {filteredList.map(person => 
+      <Person key={person.id} 
+        name={person.name} 
+        number={person.number} 
+        onClick={() => handleDeleteClick(person.id)}/>)}
+    </div>
+  )
+}
 
 const App = () => {
   const [persons, setPersons] = useState([]); 
@@ -50,29 +66,73 @@ const App = () => {
   const [filteredPersons, setFilteredPersons] = useState(persons);
 
   useEffect(() => {
-    axios
-      .get('http://localhost:3001/persons')
-      .then(response => {
-        setPersons(response.data)
+    personService
+      .getAll()
+      .then(initialPersons => {
+        setPersons(initialPersons)
       })
   }, [])
 
   const addPerson = (event) => {
     event.preventDefault();
-    if (persons.some((person) => person.name === newName)) {
-      alert(`${newName} is already added to phonebook`);
+    const existingPerson = persons.find((person) => person.name === newName)
+    
+    if (existingPerson){
+      if(existingPerson.number !== newNumber) {
+        const id = existingPerson.id
+        const updatedNumber = {...existingPerson, number: newNumber}
+
+        if(window.confirm(`${existingPerson.name} is already added to phonebook, replace the old number with a new one?`)){
+          personService
+            .update(id, updatedNumber)
+            .then(returnedPerson => {
+              setPersons(persons.map(person => person.id === id ? returnedPerson : person))
+              setNewName('');
+              setNewNumber('');
+            })
+
+            .catch(error => {
+              console.error('Failed to update the number of person:', error);
+              alert(`Failed to update ${existingPerson.name}.`);
+            });
+        } else {
+          alert(`${newName} is already added to phonebook and number was not updated.`);
+        }
+      } else {
+        alert(`${existingPerson.name} is already added to phonebook.`);
+      }
       return;
     }
+
     const nameObject = {
       name: newName,
       number: newNumber,
-      id: persons.length + 1
     };
 
-    setPersons(persons.concat(nameObject))
-    setNewName('');
-    setNewNumber('');
+    personService
+      .create(nameObject)
+      .then(returnedName => {
+        setPersons(persons.concat(returnedName))
+        setNewName('');
+        setNewNumber('');
+      })
   };
+
+  const deletePerson = (id) => {
+    const person = persons.find(person =>person.id === id)
+
+    if(window.confirm(`Delete ${person.name}?`)){
+      personService
+        .deletePerson(id)
+        .then(() => 
+          setPersons(persons.filter(person => person.id !== id)
+        ))
+        .catch((error) => {
+          console.error('Failed to delete the person:', error);
+          alert(`Failed to delete ${person.name}.`);
+        });
+    }
+  }
 
   useEffect(() => {
     setFilteredPersons(
@@ -101,7 +161,7 @@ const App = () => {
       <h2>Add a new</h2>
       <PersonForm onSubmit={addPerson} nameValue={newName} onNameChange={handleNameChange} numberValue={newNumber} onNumberChange={handleNumberChange} />
       <h2>Numbers</h2>
-      <Persons personList={filteredPersons} />
+      <Persons personList={persons} filteredList={filteredPersons} handleDeleteClick={deletePerson} />
     </div>
   );
 };
