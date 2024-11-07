@@ -1,6 +1,26 @@
 import { useState, useEffect } from 'react';
 import personService from './services/persons'
 
+const Notification = ({ message }) => {
+  if (message === null) {
+    return null
+  }
+
+  if(message.includes('removed')) {
+    return (
+      <div className='error'>
+        {message}
+      </div>
+    )
+  }
+
+  return (
+    <div className='notification'>
+      {message}
+    </div>
+  )
+}
+
 const Filter = ({value, onFilterChange}) => {
   return(
   <div>filter shown with
@@ -64,6 +84,7 @@ const App = () => {
   const [newNumber, setNewNumber] = useState('');
   const [filterText, setFilterText] = useState('');
   const [filteredPersons, setFilteredPersons] = useState(persons);
+  const [notificationMessage, setNotificationMessage] = useState(null)
 
   useEffect(() => {
     personService
@@ -72,6 +93,15 @@ const App = () => {
         setPersons(initialPersons)
       })
   }, [])
+
+  const showNotification = (message) => {
+    setNotificationMessage(
+      message
+    )
+    setTimeout(() => {
+      setNotificationMessage(null)
+    }, 5000)
+  }
 
   const addPerson = (event) => {
     event.preventDefault();
@@ -87,13 +117,17 @@ const App = () => {
             .update(id, updatedNumber)
             .then(returnedPerson => {
               setPersons(persons.map(person => person.id === id ? returnedPerson : person))
+              showNotification(`Updated ${returnedPerson.name}'s number`)
               setNewName('');
               setNewNumber('');
             })
 
             .catch(error => {
               console.error('Failed to update the number of person:', error);
-              alert(`Failed to update ${existingPerson.name}.`);
+              showNotification(`Information of ${existingPerson.name} has already been removed from server`)
+              setPersons(persons.filter(person => person.id !== id))
+              setNewName('');
+              setNewNumber('');
             });
         } else {
           alert(`${newName} is already added to phonebook and number was not updated.`);
@@ -113,6 +147,7 @@ const App = () => {
       .create(nameObject)
       .then(returnedName => {
         setPersons(persons.concat(returnedName))
+        showNotification(`Added ${returnedName.name}`)
         setNewName('');
         setNewNumber('');
       })
@@ -124,9 +159,10 @@ const App = () => {
     if(window.confirm(`Delete ${person.name}?`)){
       personService
         .deletePerson(id)
-        .then(() => 
-          setPersons(persons.filter(person => person.id !== id)
-        ))
+        .then(() => {
+          setPersons(persons.filter(person => person.id !== id))
+          showNotification(`Deleted ${person.name}`)
+        })
         .catch((error) => {
           console.error('Failed to delete the person:', error);
           alert(`Failed to delete ${person.name}.`);
@@ -157,6 +193,7 @@ const App = () => {
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification message={notificationMessage} />
       <Filter value={filterText} onFilterChange={handleFilterChange} />
       <h2>Add a new</h2>
       <PersonForm onSubmit={addPerson} nameValue={newName} onNameChange={handleNameChange} numberValue={newNumber} onNumberChange={handleNumberChange} />

@@ -1,11 +1,6 @@
 {
   "persons": [
     {
-      "id": "f78f",
-      "name": "Krinkle",
-      "number": "09123456788"
-    },
-    {
       "id": "41d7",
       "name": "Axel",
       "number": "09123456789"
@@ -14,6 +9,11 @@
       "id": "da7b",
       "name": "Mica",
       "number": "09123456786"
+    },
+    {
+      "id": "893c",
+      "name": "Axel2",
+      "number": "09123456788"
     }
   ]
 }
